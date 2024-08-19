@@ -153,8 +153,7 @@ systems_switzerland_en <- ggplot(data = cantons) +
   scale_fill_manual(
     values = c("indianred4", "indianred3","indianred1", "steelblue3", "steelblue1", "paleturquoise4", "paleturquoise3"),
     guide = guide_legend(override.aes = list(pattern = "none"))) +
-  guides(geom_sf_pattern = guide_legend(order = 2), fill = guide_legend(order = 1))
-
+  guides(geom_sf_pattern = guide_legend(order = 2), fill = guide_legend(order = 1, override.aes = list(pattern = "none")))
 
 png(filename = "Electoral systems in cantonal parliamentary elections.png", 
     type = "cairo", 
