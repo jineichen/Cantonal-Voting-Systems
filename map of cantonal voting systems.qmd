@@ -1,0 +1,177 @@
+---
+title: "cantonalvotingsystems"
+format: html
+editor: visual
+---
+
+```{r}
+# packages
+library(tidyverse)
+library(sf)
+library(openxlsx)
+#library(rnaturalearth)
+#library(rnaturalearthdata)
+theme_set(theme_bw())
+library(ggpattern)
+source("https://raw.githubusercontent.com/imaddowzimet/drawcrosshatch/master/draw_crosshatch.R") 
+
+# Tutorial to create hatched maps: https://albert-rapp.de/posts/ggplot2-tips/25_maps_patterns/25_maps_patterns
+
+
+# read mapping data with sf
+cantons <- st_read("swissboundaries/SHAPEFILE_LV95_LN02/swissBOUNDARIES3D_1_3_TLM_KANTONSGEBIET.shp")
+
+
+empty_switzerland <- ggplot(data = cantons) +
+  geom_sf()
+empty_switzerland
+
+cantonnames_vec <- unique(cantons$NAME)
+write(cantonnames_vec, "cantonnames.txt")
+
+# read voting system data
+votingsystem <- read.xlsx("cantonalvotingsystems_2024-08-19.xlsx")
+
+# recoding
+votingsystem <- votingsystem |>
+  mutate(
+    QUOREN_F = factor(case_when(
+    QUOTA == 1 ~ "Ja",
+    QUOTA == 0 ~ "Nein",
+    T ~ NA_character_
+  ), levels = c("Ja", "Nein")),
+  
+    QUOTA_F = factor(case_when(
+    QUOTA == 1 ~ "Yes",
+    QUOTA == 0 ~ "No",
+    T ~ NA_character_
+  ), levels = c("Yes", "No")),
+  
+  
+    PROPORZ_ZUT_F = factor(case_when(
+      is.na(PROPOR_ALLOCATION_DE) ~ "Nur Majorz",
+      CANTON == "Uri" ~ "Majorz oder Doppelter Pukelsheim",
+      CANTON == "Appenzell Ausserrhoden" ~ "Majorz oder Hagenbach-Bischoff",
+      T ~ PROPOR_ALLOCATION_DE),
+      levels = c("Nur Majorz","Majorz oder Hagenbach-Bischoff", "Majorz oder Doppelter Pukelsheim", "Hagenbach-Bischoff", "Hare/Niemeyer", "Sainte-Laguë", "Doppelter Pukelsheim")),
+  
+    
+  ALLOCATION_F = factor(case_when(
+      is.na(PROPOR_ALLOCATION) ~ "Only majoritarian",
+      CANTON == "Uri" ~ "Majoritarian or biproportional (Pukelsheim)",
+      CANTON == "Appenzell Ausserrhoden" ~ "Majoritarian or Hagenbach-Bischoff",
+      T ~ PROPOR_ALLOCATION),
+      levels = c("Only majoritarian","Majoritarian or Hagenbach-Bischoff", "Majoritarian or biproportional (Pukelsheim)", "Hagenbach-Bischoff", "Hare/Niemeyer", "Sainte-Laguë", "Biproportional (Pukelsheim)")),
+  
+  
+  
+  
+    
+  ADDRULES_DE = factor(case_when(
+      QUOTA == 1 & LISTCONNECTIONS == 1 ~ "Quorum und Listenverbindungen",
+      QUOTA == 1 & LISTCONNECTIONS == 0 ~ "Quorum",
+      QUOTA == 0 & LISTCONNECTIONS == 1 ~ "Listenverbindungen",
+      QUOTA == 0 & LISTCONNECTIONS == 0 ~ "Weder noch",
+      T ~ NA_character_
+    ), levels = c("Quorum und Listenverbindungen", "Quorum", "Listenverbindungen", "Weder noch")
+    ),
+
+    
+  ADDRULES = factor(case_when(
+      QUOTA == 1 & LISTCONNECTIONS == 1 ~ "Quota and list connections",
+      QUOTA == 1 & LISTCONNECTIONS == 0 ~ "Quota",
+      QUOTA == 0 & LISTCONNECTIONS == 1 ~ "List connections",
+      QUOTA == 0 & LISTCONNECTIONS == 0 ~ "Neither",
+      T ~ NA_character_
+    ), levels = c("Quota and list connections", "Quota", "List connections", "Neither")
+    )
+  )
+
+
+
+
+
+cantons <- left_join(cantons, votingsystem, by = c("NAME" = "CANTON"))
+
+
+
+# Plots
+# German
+systems_switzerland_de <- ggplot(data = cantons) +
+  geom_sf_pattern(aes(fill = PROPORZ_ZUT_F, pattern = ADDRULES_DE, pattern_angle = ADDRULES_DE), pattern_color = "NA", pattern_fill = "black", pattern_size = 0.5,
+                  pattern_key_scale_factor=.5) + 
+  labs(x = "Longitude", y = "Latitude", fill = "Sitzzuteilungsverfahren", pattern = "Weitere Regelungen", pattern_angle = "Weitere Regelungen",
+       caption = "Recherche und Darstellung: Jonas Ineichen") +
+  ggtitle("Wahlsysteme bei Kantonalen Parlamentswahlen") + 
+  theme_void() +
+  theme(plot.caption.position = "plot") +
+  scale_pattern_manual(
+    values = c("Quorum und Listenverbindungen" = "crosshatch",
+               "Quorum" = "stripe", 
+               "Listenverbindungen" = "stripe", 
+               "Weder noch" ="none")) +
+  scale_pattern_angle_manual(
+    values = c(45,45,-45,0)
+  ) +
+  scale_fill_manual(
+    values = c("indianred4", "indianred3","indianred1", "steelblue3", "steelblue1", "paleturquoise4", "paleturquoise3"),
+    guide = guide_legend(override.aes = list(pattern = "none")))
+
+
+
+png(filename = "Wahlsysteme bei Kantonalen Parlamentswahlen.png", 
+    type = "cairo", 
+    units = "px", 
+    width = 5700, 
+    height = 3000, 
+    res = 500)
+systems_switzerland_de
+dev.off()
+
+
+
+
+
+
+# English
+systems_switzerland_en <- ggplot(data = cantons) +
+  geom_sf_pattern(aes(fill = ALLOCATION_F, pattern = ADDRULES, pattern_angle = ADDRULES), pattern_color = "NA", pattern_fill = "black", pattern_size = 0.5,
+                  pattern_key_scale_factor=.5) + 
+  labs(x = "Longitude", y = "Latitude", fill = "Seat allocation method", pattern = "Additional characteristics", pattern_angle = "Additional characteristics",
+       caption = "Data collection and plotting: Jonas Ineichen") +
+  ggtitle("Electoral systems for cantonal parliamentary elections") + 
+  theme_void() +
+  theme(plot.caption.position = "plot") +
+  scale_pattern_manual(
+    values = c("Quota and list connections" = "crosshatch",
+               "Quota" = "stripe", 
+               "List connections" = "stripe", 
+               "Neither" ="none")) +
+  scale_pattern_angle_manual(
+    values = c(45,45,-45,0)
+  ) +
+  scale_fill_manual(
+    values = c("indianred4", "indianred3","indianred1", "steelblue3", "steelblue1", "paleturquoise4", "paleturquoise3"),
+    guide = guide_legend(override.aes = list(pattern = "none"))) +
+  guides(geom_sf_pattern = guide_legend(order = 2), fill = guide_legend(order = 1))
+
+
+png(filename = "Electoral systems in cantonal parliamentary elections.png", 
+    type = "cairo", 
+    units = "px", 
+    width = 5700, 
+    height = 3000,
+    res = 500)
+systems_switzerland_en
+dev.off()
+
+
+
+
+```
+
+```{r, eval = FALSE}
+png(filename = "Wahlsysteme bei Kantonsratswahlen2.png", type = "cairo")
+systems_switzerland2
+dev.off()
+```
